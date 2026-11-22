@@ -50,7 +50,14 @@ let NAMA_SEKOLAH='MI HIDAYATUL MUBTADIIN SUKORAME';
 let JUDUL='JADWAL SUMATIF AKHIR SEMESTER (SAS)';
 let TA='TAHUN PELAJARAN 2026/2027';
 let KEPALA='MUH. ABARIQA, S.S';
-let TGL_TTD='Sukorame, 24 November 2026';
+
+// ===== TANGGAL TTD OTOMATIS = TANGGAL PAS DIBUKA / DI-DOWNLOAD =====
+function getTanggalTTD(){
+  let d=new Date();
+  let bulan=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  return 'Sukorame, '+d.getDate()+' '+bulan[d.getMonth()]+' '+d.getFullYear();
+}
+let TGL_TTD=getTanggalTTD();
 
 let base=[
 ['1','SENIN<br>30 November 2026','07.00 - 08.30','BAHASA JAWA'],
@@ -99,6 +106,7 @@ function buatJadwal(d, withTTD){
   html+=`</div>`; return html;
 }
 function render(){
+  TGL_TTD=getTanggalTTD(); // refresh tanggal tiap render
   let out='';
   for(let i=0;i<data.length;i+=2){
     out+=`<div class="row">${buatJadwal(data[i],true)}${data[i+1]?buatJadwal(data[i+1],true):'<div class="jadwal"></div>'}</div>`;
@@ -114,8 +122,7 @@ function render(){
 function ambilKelas(nama){ return data.find(d=>d.kelas===nama); }
 function setStatus(t){ document.getElementById('status').innerHTML=t; }
 
-// ===== EXCEL - 2 TABEL JEJER, PODo PDF =====
-// Layout kolom: A-D = tabel kiwo, E = pemisah, F-I = tabel tengen
+// ===== EXCEL - 2 TABEL JEJER =====
 function isiSatuTabelExcel(ws, d, colStart){
   let thin={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
   let judul=['JADWAL SUMATIF AKHIR SEMESTER (SAS)','TAHUN PELAJARAN 2026/2027','MI HIDAYATUL MUBTADIIN SUKORAME',d.kelas];
@@ -153,10 +160,9 @@ function isiSatuTabelExcel(ws, d, colStart){
     for(let rr=rowIdx; rr<rowIdx+rowspan; rr++){ for(let cc=colStart; cc<colStart+4; cc++){ ws.getCell(rr,cc).border=thin; } }
     rowIdx+=rowspan; i=j;
   }
-  // TTD hanya Kamad, tanpa kotak, tanpa garis
   rowIdx++;
   ws.mergeCells(rowIdx,colStart+2,rowIdx,colStart+3);
-  let cTgl=ws.getCell(rowIdx,colStart+2); cTgl.value='Sukorame, 24 November 2026'; cTgl.font={size:10,name:'Times New Roman'}; cTgl.alignment={horizontal:'center'};
+  let cTgl=ws.getCell(rowIdx,colStart+2); cTgl.value=getTanggalTTD(); cTgl.font={size:10,name:'Times New Roman'}; cTgl.alignment={horizontal:'center'};
   rowIdx++;
   ws.mergeCells(rowIdx,colStart+2,rowIdx,colStart+3);
   let cJab=ws.getCell(rowIdx,colStart+2); cJab.value='Kepala Madrasah'; cJab.font={size:10,name:'Times New Roman'}; cJab.alignment={horizontal:'center'};
@@ -168,17 +174,15 @@ function isiSatuTabelExcel(ws, d, colStart){
 }
 async function buatSheetExcel2Kolom(workbook, d){
   let ws=workbook.addWorksheet(d.kelas);
-  // A-D kiwo, E pemisah, F-I tengen
   ws.columns=[{width:7},{width:26},{width:16},{width:22},{width:3},{width:7},{width:26},{width:16},{width:22}];
   isiSatuTabelExcel(ws,d,1);
   isiSatuTabelExcel(ws,d,6);
   ws.sheetProperties.pageSetUpPr={fitToPage:true};
-  ws.pageSetup={paperSize:9, orientation:'landscape', fitToWidth:1, fitToHeight:1, paperSize:9};
+  ws.pageSetup={paperSize:9, orientation:'landscape', fitToWidth:1, fitToHeight:1};
   ws.printOptions={horizontalCentered:true};
   return ws;
 }
 function downloadExcelCadangan2Kolom(nama, semua){
-  // Cadangan SheetJS - 2 tabel jejer
   let wb=XLSX.utils.book_new();
   let daftar=semua?data:[ambilKelas(nama)];
   daftar.forEach(d=>{
@@ -201,7 +205,7 @@ function downloadExcelCadangan2Kolom(nama, semua){
       rIdx+=rowspan; i=j;
     }
     aoa.push(new Array(9).fill(''));
-    let t1=new Array(9).fill(''); t1[2]='Sukorame, 24 November 2026'; t1[7]='Sukorame, 24 November 2026'; aoa.push(t1);
+    let t1=new Array(9).fill(''); t1[2]=getTanggalTTD(); t1[7]=getTanggalTTD(); aoa.push(t1);
     let t2=new Array(9).fill(''); t2[2]='Kepala Madrasah'; t2[7]='Kepala Madrasah'; aoa.push(t2);
     aoa.push(new Array(9).fill('')); aoa.push(new Array(9).fill('')); aoa.push(new Array(9).fill(''));
     let t3=new Array(9).fill(''); t3[2]='MUH. ABARIQA, S.S'; t3[7]='MUH. ABARIQA, S.S'; aoa.push(t3);
@@ -238,8 +242,7 @@ async function downloadSemuaExcel(){
   }catch(e){ downloadExcelCadangan2Kolom('',true); }
 }
 
-// ===== WORD - 2 TABEL JEJER, PODo PDF =====
-// Cara Word: pakai tabel pembungkus 1 baris 2 kolom, neng jero tiap kolom ono tabel jadwal
+// ===== WORD - 2 TABEL JEJER =====
 function buatTabelJadwalDocx(d){
   let rows=[];
   let header=new docx.TableRow({children:['NO','HARI/TANGGAL','WAKTU','MATA PELAJARAN'].map(t=>new docx.TableCell({width:{size:25,type:docx.WidthType.PERCENTAGE}, children:[new docx.Paragraph({alignment:docx.AlignmentType.CENTER, children:[new docx.TextRun({text:t,bold:true,size:18})]})]}))});
@@ -271,7 +274,7 @@ function buatSatuKolomDocx(d){
     new docx.Paragraph({text:''}),
     buatTabelJadwalDocx(d),
     new docx.Paragraph({text:''}),
-    new docx.Paragraph({alignment:docx.AlignmentType.RIGHT, children:[new docx.TextRun({text:'Sukorame, 24 November 2026',size:18})]}),
+    new docx.Paragraph({alignment:docx.AlignmentType.RIGHT, children:[new docx.TextRun({text:getTanggalTTD(),size:18})]}),
     new docx.Paragraph({alignment:docx.AlignmentType.RIGHT, children:[new docx.TextRun({text:'Kepala Madrasah',size:18})]}),
     new docx.Paragraph({text:''}), new docx.Paragraph({text:''}), new docx.Paragraph({text:''}),
     new docx.Paragraph({alignment:docx.AlignmentType.RIGHT, children:[new docx.TextRun({text:'MUH. ABARIQA, S.S',bold:true,underline:{},size:18})]}),
@@ -291,7 +294,7 @@ function downloadWordCadangan2Kolom(nama){
       }
       i=j;
     }
-    return `<div style="width:48%;display:inline-block;vertical-align:top;margin-right:2%"><h3 style="text-align:center;font-size:11px">JADWAL SUMATIF AKHIR SEMESTER (SAS)<br>TAHUN PELAJARAN 2026/2027<br>MI HIDAYATUL MUBTADIIN SUKORAME<br>${d.kelas}</h3><table style="border-collapse:collapse;width:100%"><tr><th>NO</th><th>HARI/TANGGAL</th><th>WAKTU</th><th>MATA PELAJARAN</th></tr>${rowsHtml}</table><div style="text-align:right;font-size:11px">Sukorame, 24 November 2026<br>Kepala Madrasah<br><br><br><br><b><u>MUH. ABARIQA, S.S</u></b></div></div>`;
+    return `<div style="width:48%;display:inline-block;vertical-align:top;margin-right:2%"><h3 style="text-align:center;font-size:11px">JADWAL SUMATIF AKHIR SEMESTER (SAS)<br>TAHUN PELAJARAN 2026/2027<br>MI HIDAYATUL MUBTADIIN SUKORAME<br>${d.kelas}</h3><table style="border-collapse:collapse;width:100%"><tr><th>NO</th><th>HARI/TANGGAL</th><th>WAKTU</th><th>MATA PELAJARAN</th></tr>${rowsHtml}</table><div style="text-align:right;font-size:11px">${getTanggalTTD()}<br>Kepala Madrasah<br><br><br><br><b><u>MUH. ABARIQA, S.S</u></b></div></div>`;
   };
   let html=`<html><head><meta charset="utf-8"><style>table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:4px;font-family:'Times New Roman';font-size:10px}th{background:#ddd}</style></head><body>${buatSatuHTML()}${buatSatuHTML()}</body></html>`;
   let blob=new Blob(['\ufeff',html],{type:'application/msword'});
@@ -302,7 +305,6 @@ async function downloadWordSatu(nama){
     setStatus('⏳ Lagi nggawe Word 2 kolom...');
     if(typeof docx!=='undefined' && docx.Document){
       let d=ambilKelas(nama);
-      // Tabel pembungkus: 1 baris, 2 kolom, tiap kolom isi jadwal lengkap
       let outer=new docx.Table({
         rows:[new docx.TableRow({children:[
           new docx.TableCell({width:{size:50,type:docx.WidthType.PERCENTAGE}, children: buatSatuKolomDocx(d)}),
@@ -319,7 +321,7 @@ async function downloadWordSatu(nama){
   }catch(e){ console.log(e); downloadWordCadangan2Kolom(nama); setStatus('✅ Word ke-download (cadangan .doc)'); }
 }
 
-// ===== PDF - 2 KOLOM JEJER, KIWO-TENGEN KELAS E PODO, HANYA KAMAD =====
+// ===== PDF =====
 function gambarSatuTabelPDF(doc, d, x0, yAwal){
   let wNo=10, wHari=42, wWaktu=28, wMapel=45, wTotal=wNo+wHari+wWaktu+wMapel;
   let y=yAwal, h=7;
@@ -357,7 +359,7 @@ function gambarSatuTabelPDF(doc, d, x0, yAwal){
     i=j;
   }
   y+=6; doc.setFont('times','normal');
-  doc.text('Sukorame, 24 November 2026', x0+wTotal-2, y, {align:'right'}); y+=5;
+  doc.text(getTanggalTTD(), x0+wTotal-2, y, {align:'right'}); y+=5;
   doc.text('Kepala Madrasah', x0+wTotal-2, y, {align:'right'}); y+=15;
   doc.setFont('times','bold'); doc.text('MUH. ABARIQA, S.S', x0+wTotal-2, y, {align:'right'});
   return y;
